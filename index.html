@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>マイアプリストア</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f6f8;
+    --surface: #ffffff;
+    --ink: #1c2b3a;
+    --muted: #5d6b7a;
+    --line: #dbe2e9;
+    --accent: #0f6e8c;
+    --accent-ink: #ffffff;
+    --star: #f0a022;
+    --star-off: #d5dbe1;
+    --font: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); line-height: 1.7; }
+  button { font-family: inherit; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 40px 20px 64px; }
+
+  header { margin-bottom: 28px; }
+  h1 { margin: 0; font-size: clamp(1.8rem, 5vw, 2.6rem); font-weight: 700; letter-spacing: .02em; line-height: 1.3; }
+  .sub { margin: 8px 0 0; color: var(--muted); max-width: 36em; }
+
+  .tools { display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: center; margin-bottom: 8px; }
+  .search, .select, .input, .textarea {
+    font: inherit; font-size: 1rem; color: var(--ink);
+    padding: 12px 16px; background: var(--surface);
+    border: 2px solid var(--line); border-radius: 12px;
+  }
+  .search { flex: 1 1 260px; min-width: 0; }
+  .select { padding: 10px 12px; }
+  .search:focus-visible, .select:focus-visible, .input:focus-visible, .textarea:focus-visible,
+  .chip:focus-visible, .card-main:focus-visible, .open:focus-visible, .btn:focus-visible,
+  .star-input button:focus-visible, .close:focus-visible {
+    outline: 3px solid var(--accent); outline-offset: 2px;
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    font-size: .9rem; padding: 6px 14px; cursor: pointer;
+    border: 1.5px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink);
+  }
+  .chip[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
+
+  .count { margin: 12px 0 16px; color: var(--muted); font-size: .9rem; }
+  .notice { margin: 0 0 12px; padding: 12px 16px; border-left: 4px solid #e8a33d; background: #fdf4e3; border-radius: 6px; font-size: .92rem; }
+  .notice.error { border-color: #c0392b; background: #fbeaea; }
+
+  /* ---- 星 ---- */
+  .stars { position: relative; display: inline-block; line-height: 1; letter-spacing: 1px; color: var(--star-off); white-space: nowrap; }
+  .stars::before { content: "★★★★★"; }
+  .stars .fill { position: absolute; left: 0; top: 0; height: 100%; overflow: hidden; color: var(--star); }
+  .stars .fill::before { content: "★★★★★"; }
+
+  /* ---- カード ---- */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 16px; }
+  .card { display: flex; flex-direction: column; background: var(--surface); border: 1.5px solid var(--line); border-radius: 16px; transition: border-color .15s ease; }
+  .card:hover { border-color: var(--accent); }
+  .card-main {
+    display: flex; gap: 16px; align-items: flex-start; flex: 1;
+    width: 100%; padding: 18px 18px 8px; text-align: left; color: inherit;
+    background: none; border: 0; border-radius: 16px 16px 0 0; cursor: pointer;
+  }
+  .icon { flex: none; width: 60px; height: 60px; border-radius: 14px; display: grid; place-items: center; font-size: 1.9rem; font-weight: 700; overflow: hidden; }
+  .icon img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .body { min-width: 0; flex: 1; }
+  .name { margin: 0; font-size: 1.1rem; font-weight: 700; line-height: 1.4; }
+  .desc { margin: 4px 0 0; color: var(--muted); font-size: .92rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .rating { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: .88rem; color: var(--muted); }
+  .rating .stars { font-size: 1.05rem; }
+  .rating b { color: var(--ink); font-size: 1rem; }
+  .card-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 18px 16px 94px; }
+  .tag { color: var(--muted); font-size: .8rem; }
+  .open {
+    flex: none; display: inline-block; padding: 4px 18px; border-radius: 999px;
+    background: var(--accent); color: var(--accent-ink); text-decoration: none; font-size: .9rem; font-weight: 700;
+  }
+  .open:hover { filter: brightness(1.1); }
+  .empty { grid-column: 1 / -1; padding: 40px 0; text-align: center; color: var(--muted); }
+
+  /* ---- 詳細ダイアログ ---- */
+  dialog { width: min(660px, 94vw); max-height: 92vh; padding: 0; border: 0; border-radius: 22px; background: var(--surface); color: var(--ink); }
+  dialog[open] { display: flex; flex-direction: column; }
+  dialog::backdrop { background: rgba(28, 43, 58, .55); }
+  .dlg-top { display: flex; justify-content: flex-end; padding: 10px 12px 0; }
+  .close { width: 40px; height: 40px; font-size: 1.4rem; line-height: 1; color: var(--muted); background: var(--bg); border: 0; border-radius: 50%; cursor: pointer; }
+  .dlg-scroll { overflow-y: auto; padding: 0 24px 28px; }
+  .dlg-head { display: flex; gap: 18px; align-items: center; }
+  .dlg-head .icon { width: 76px; height: 76px; font-size: 2.4rem; border-radius: 18px; }
+  .dlg-head h2 { margin: 0; font-size: 1.5rem; line-height: 1.35; }
+  .dlg-head .tag { display: block; margin-top: 2px; }
+  .dlg-desc { margin: 14px 0 16px; color: var(--muted); white-space: pre-wrap; }
+  .open.big { padding: 10px 28px; font-size: 1.05rem; }
+
+  h3 { margin: 32px 0 12px; font-size: 1.1rem; }
+  .summary { display: flex; flex-wrap: wrap; gap: 20px 32px; align-items: center; padding: 18px 20px; background: var(--bg); border-radius: 16px; }
+  .avg { text-align: center; min-width: 120px; }
+  .avg .num { font-size: 3.2rem; font-weight: 700; line-height: 1.1; }
+  .avg .stars { font-size: 1.4rem; }
+  .avg .n { margin-top: 4px; color: var(--muted); font-size: .85rem; }
+  .dist { flex: 1 1 220px; display: grid; gap: 4px; }
+  .dist-row { display: grid; grid-template-columns: 2.4em 1fr 2.4em; gap: 8px; align-items: center; font-size: .85rem; color: var(--muted); }
+  .dist-row .lab { color: var(--star); font-weight: 700; text-align: right; }
+  .bar { height: 10px; border-radius: 999px; background: var(--star-off); overflow: hidden; }
+  .bar span { display: block; height: 100%; background: var(--star); border-radius: 999px; }
+
+  .form { padding: 18px 20px; border: 1.5px solid var(--line); border-radius: 16px; display: grid; gap: 12px; }
+  .field label, .field .lbl { display: block; margin-bottom: 4px; font-size: .9rem; font-weight: 700; }
+  .input, .textarea { width: 100%; }
+  .textarea { min-height: 110px; resize: vertical; }
+  .star-input { display: flex; align-items: center; gap: 2px; }
+  .star-input button { padding: 0 2px; font-size: 2.2rem; line-height: 1.2; color: var(--star-off); background: none; border: 0; cursor: pointer; }
+  .star-input button.on { color: var(--star); }
+  #star-label { margin-left: 10px; font-size: .9rem; color: var(--muted); }
+  .hint { margin: 0; font-size: .82rem; color: var(--muted); }
+  .hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+  .btn { justify-self: start; padding: 10px 28px; font-size: 1rem; font-weight: 700; color: var(--accent-ink); background: var(--accent); border: 0; border-radius: 999px; cursor: pointer; }
+  .btn:disabled { opacity: .55; cursor: default; }
+  .status { margin: 0; font-size: .9rem; min-height: 1.4em; }
+  .status.ok { color: #1d7a45; }
+  .status.ng { color: #b3261e; }
+
+  .list-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 32px 0 8px; }
+  .list-head h3 { margin: 0; }
+  .reviews { list-style: none; margin: 0; padding: 0; }
+  .review { padding: 16px 0; border-bottom: 1px solid var(--line); }
+  .review:last-child { border-bottom: 0; }
+  .review-top { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+  .review .stars { font-size: 1.05rem; }
+  .review .who { font-weight: 700; }
+  .review .date { color: var(--muted); font-size: .82rem; }
+  .review p { margin: 6px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .no-reviews { padding: 20px 0; color: var(--muted); }
+
+  @media (prefers-reduced-motion: reduce) { .card { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1 id="title">マイアプリストア</h1>
+    <p class="sub" id="subtitle"></p>
+  </header>
+
+  <div id="notice-area"></div>
+
+  <div class="tools">
+    <input id="search" class="search" type="search" placeholder="アプリ名や説明で探す" aria-label="アプリを検索">
+    <select id="sort" class="select" aria-label="並び順">
+      <option value="default">登録順</option>
+      <option value="rating">評価が高い順</option>
+      <option value="count">レビューが多い順</option>
+    </select>
+  </div>
+  <div id="chips" class="chips" role="group" aria-label="カテゴリで絞り込み" style="margin-top:12px"></div>
+  <p class="count" id="count" aria-live="polite"></p>
+
+  <main id="grid" class="grid"></main>
+</div>
+
+<dialog id="dlg" aria-labelledby="dlg-name">
+  <div class="dlg-top"><button type="button" class="close" id="dlg-close" aria-label="閉じる">×</button></div>
+  <div class="dlg-scroll">
+    <div class="dlg-head">
+      <div id="dlg-icon"></div>
+      <div>
+        <h2 id="dlg-name"></h2>
+        <span class="tag" id="dlg-tag"></span>
+      </div>
+    </div>
+    <p class="dlg-desc" id="dlg-desc"></p>
+    <a class="open big" id="dlg-open" target="_blank" rel="noopener noreferrer">アプリを開く</a>
+
+    <h3>みんなの評価</h3>
+    <div class="summary" id="summary"></div>
+
+    <h3>レビューを書く</h3>
+    <form class="form" id="form" autocomplete="off">
+      <div class="field">
+        <span class="lbl" id="star-lbl">評価</span>
+        <div class="star-input" id="star-input" role="radiogroup" aria-labelledby="star-lbl">
+          <button type="button" role="radio" aria-checked="false" aria-label="星1つ">★</button>
+          <button type="button" role="radio" aria-checked="false" aria-label="星2つ">★</button>
+          <button type="button" role="radio" aria-checked="false" aria-label="星3つ">★</button>
+          <button type="button" role="radio" aria-checked="false" aria-label="星4つ">★</button>
+          <button type="button" role="radio" aria-checked="false" aria-label="星5つ">★</button>
+          <span id="star-label">星を選んでください</span>
+        </div>
+      </div>
+      <div class="field">
+        <label for="f-name">ニックネーム（20文字まで）</label>
+        <input class="input" id="f-name" maxlength="20" placeholder="空欄なら「匿名」になります">
+      </div>
+      <div class="field">
+        <label for="f-text">コメント（500文字まで）</label>
+        <textarea class="textarea" id="f-text" maxlength="500" placeholder="使ってみた感想や、良かった点・改善してほしい点を書いてください"></textarea>
+        <p class="hint" id="f-count">0 / 500</p>
+      </div>
+      <div class="hp" aria-hidden="true"><label>website<input id="f-hp" tabindex="-1" autocomplete="off"></label></div>
+      <p class="hint">本名・学校名・連絡先などの個人情報は書かないでください。</p>
+      <button class="btn" id="f-submit" type="submit">投稿する</button>
+      <p class="status" id="f-status" role="status"></p>
+    </form>
+
+    <div class="list-head">
+      <h3>レビュー</h3>
+      <select id="r-sort" class="select" aria-label="レビューの並び順">
+        <option value="new">新しい順</option>
+        <option value="high">評価が高い順</option>
+        <option value="low">評価が低い順</option>
+      </select>
+    </div>
+    <ul class="reviews" id="reviews"></ul>
+  </div>
+</dialog>
+
+<script>
+// ========== 設定（ここだけ書き換えればOK） ==========
+const CONFIG = {
+  title: "マイアプリストア",
+  subtitle: "ここから好きなアプリを選んで、すぐに使えます。",
+  // アプリ一覧：スプレッドシートを「ウェブに公開」→ CSV のURL
+  sheetCsvUrl: "",
+  // レビュー：Google Apps Script をウェブアプリとして公開したURL（…/exec）
+  // 空のままだと「お試しモード」（この端末だけに保存）になります
+  reviewApiUrl: ""
+};
+// ====================================================
+
+const DEMO_ROWS = [
+  { name: "サンプルアプリ A", url: "https://example.com/a", desc: "スプレッドシートのURLを設定すると、ここに自作アプリが並びます。", icon: "🧪", category: "理科" },
+  { name: "サンプルアプリ B", url: "https://example.com/b", desc: "アプリ名・URL・説明・アイコン（絵文字）・カテゴリを1行ずつ入力します。", icon: "📚", category: "学習" },
+  { name: "サンプルアプリ C", url: "https://example.com/c", desc: "「公開」列に × を入れた行は、サイトに表示されません。", icon: "🗺️", category: "学習" }
+];
+const DEMO_REVIEWS = [
+  { key: "https://example.com/a", name: "ゆう", stars: 5, text: "操作が分かりやすくて、すぐ使えました。", date: "2026-10-20" },
+  { key: "https://example.com/a", name: "匿名", stars: 4, text: "もう少し説明がほしいです。", date: "2026-10-22" },
+  { key: "https://example.com/a", name: "はる", stars: 4, text: "", date: "2026-10-25" },
+  { key: "https://example.com/b", name: "みく", stars: 3, text: "ふつうに使えます。", date: "2026-10-26" }
+];
+const DEMO_STORE = "appstore_demo_reviews";
+const TINTS = ["#d9ebf3", "#f7e4c6", "#dcebd3", "#f3d9d9", "#e4ddf1", "#d6ece9"];
+const STAR_WORDS = ["", "とても悪い", "悪い", "ふつう", "良い", "とても良い"];
+
+const state = { rows: [], reviews: [], query: "", category: "すべて", sort: "default", rsort: "new", current: null };
+const $ = (id) => document.getElementById(id);
+
+// ---------- CSV ----------
+function parseCSV(text) {
+  text = text.replace(/^\uFEFF/, "");
+  const rows = [];
+  let row = [], cell = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; }
+      else cell += c;
+    } else if (c === '"') q = true;
+    else if (c === ",") { row.push(cell); cell = ""; }
+    else if (c === "\n" || c === "\r") {
+      if (c === "\r" && text[i + 1] === "\n") i++;
+      row.push(cell); cell = "";
+      if (row.some((v) => v.trim() !== "")) rows.push(row);
+      row = [];
+    } else cell += c;
+  }
+  row.push(cell);
+  if (row.some((v) => v.trim() !== "")) rows.push(row);
+  return rows;
+}
+function isSafeUrl(u) {
+  try { const p = new URL(u); return p.protocol === "https:" || p.protocol === "http:"; } catch { return false; }
+}
+function toApps(table) {
+  if (table.length < 2) return [];
+  const head = table[0].map((h) => h.trim());
+  const col = (names) => head.findIndex((h) => names.includes(h));
+  const idx = {
+    show: col(["公開", "表示"]), name: col(["アプリ名", "名前", "タイトル"]), url: col(["URL", "url", "リンク"]),
+    desc: col(["説明", "概要"]), icon: col(["アイコン", "icon"]), category: col(["カテゴリ", "カテゴリー", "分類"])
+  };
+  const get = (r, i) => (i >= 0 && r[i] !== undefined ? r[i].trim() : "");
+  return table.slice(1).map((r) => ({
+    show: get(r, idx.show), name: get(r, idx.name), url: get(r, idx.url),
+    desc: get(r, idx.desc), icon: get(r, idx.icon), category: get(r, idx.category)
+  })).filter((a) => {
+    const hidden = ["×", "✕", "x", "false", "非公開", "no"].includes(a.show.toLowerCase());
+    return a.name && isSafeUrl(a.url) && !hidden;
+  });
+}
+
+// ---------- レビューの集計 ----------
+function statsFor(key) {
+  const list = state.reviews.filter((r) => r.key === key);
+  const dist = [0, 0, 0, 0, 0, 0];
+  list.forEach((r) => { dist[r.stars]++; });
+  const count = list.length;
+  const avg = count ? list.reduce((s, r) => s + r.stars, 0) / count : 0;
+  return { list, count, avg, dist };
+}
+
+// ---------- 部品 ----------
+function makeStars(avg) {
+  const s = document.createElement("span");
+  s.className = "stars";
+  s.setAttribute("role", "img");
+  s.setAttribute("aria-label", "5点中 " + avg.toFixed(1) + " 点");
+  const f = document.createElement("span");
+  f.className = "fill";
+  f.style.width = Math.max(0, Math.min(5, avg)) / 5 * 100 + "%";
+  s.appendChild(f);
+  return s;
+}
+function tintFor(name) {
+  let h = 0;
+  for (const ch of name) h = (h * 31 + ch.codePointAt(0)) >>> 0;
+  return TINTS[h % TINTS.length];
+}
+function makeIcon(app) {
+  const box = document.createElement("div");
+  box.className = "icon";
+  box.style.background = tintFor(app.name);
+  const fallback = () => { box.textContent = Array.from(app.name)[0]; };
+  if (/^https?:\/\//i.test(app.icon)) {
+    const img = document.createElement("img");
+    img.alt = ""; img.loading = "lazy"; img.src = app.icon;
+    img.addEventListener("error", () => { img.remove(); fallback(); });
+    box.appendChild(img);
+  } else if (app.icon) box.textContent = app.icon;
+  else fallback();
+  return box;
+}
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+function openLink(app, cls) {
+  const a = el("a", cls, cls.includes("big") ? "アプリを開く" : "開く");
+  a.href = app.url; a.target = "_blank"; a.rel = "noopener noreferrer";
+  return a;
+}
+
+// ---------- 一覧 ----------
+function makeCard(app) {
+  const st = statsFor(app.url);
+  const card = el("article", "card");
+
+  const main = el("button", "card-main");
+  main.type = "button";
+  main.setAttribute("aria-label", app.name + "の詳細とレビューを見る");
+  const body = el("div", "body");
+  body.appendChild(el("h2", "name", app.name));
+  if (app.desc) body.appendChild(el("p", "desc", app.desc));
+  const rating = el("div", "rating");
+  if (st.count) {
+    rating.append(el("b", "", st.avg.toFixed(1)), makeStars(st.avg), el("span", "", "(" + st.count + "件)"));
+  } else rating.appendChild(el("span", "", "まだレビューがありません"));
+  body.appendChild(rating);
+  main.append(makeIcon(app), body);
+  main.addEventListener("click", () => openDetail(app));
+
+  const foot = el("div", "card-foot");
+  foot.append(el("span", "tag", app.category), openLink(app, "open"));
+  card.append(main, foot);
+  return card;
+}
+function renderChips() {
+  const cats = ["すべて", ...new Set(state.rows.map((r) => r.category).filter(Boolean))];
+  const wrap = $("chips");
+  wrap.replaceChildren();
+  if (cats.length <= 2) return;
+  cats.forEach((c) => {
+    const b = el("button", "chip", c);
+    b.type = "button";
+    b.setAttribute("aria-pressed", String(c === state.category));
+    b.addEventListener("click", () => { state.category = c; renderChips(); renderGrid(); });
+    wrap.appendChild(b);
+  });
+}
+function renderGrid() {
+  const q = state.query.toLowerCase();
+  let list = state.rows.filter((r) =>
+    (state.category === "すべて" || r.category === state.category) &&
+    (!q || (r.name + " " + r.desc + " " + r.category).toLowerCase().includes(q)));
+  if (state.sort !== "default") {
+    const s = new Map(list.map((a) => [a, statsFor(a.url)]));
+    list = list.slice().sort((a, b) => state.sort === "rating"
+      ? (s.get(b).avg - s.get(a).avg) || (s.get(b).count - s.get(a).count)
+      : (s.get(b).count - s.get(a).count) || (s.get(b).avg - s.get(a).avg));
+  }
+  const grid = $("grid");
+  grid.replaceChildren();
+  $("count").textContent = list.length + " 個のアプリ";
+  if (!list.length) {
+    grid.appendChild(el("p", "empty", state.rows.length
+      ? "条件に合うアプリがありません。検索ワードやカテゴリを変えてみてください。"
+      : "まだアプリが登録されていません。"));
+    return;
+  }
+  list.forEach((a) => grid.appendChild(makeCard(a)));
+}
+
+// ---------- 詳細ダイアログ ----------
+function openDetail(app) {
+  state.current = app;
+  $("dlg-icon").replaceChildren(makeIcon(app));
+  $("dlg-name").textContent = app.name;
+  $("dlg-tag").textContent = app.category;
+  $("dlg-desc").textContent = app.desc;
+  const link = $("dlg-open");
+  link.href = app.url;
+  resetForm();
+  renderReviewPanel();
+  $("dlg").showModal();
+  $("dlg").querySelector(".dlg-scroll").scrollTop = 0;
+}
+function renderReviewPanel() {
+  const st = statsFor(state.current.url);
+
+  const sum = $("summary");
+  sum.replaceChildren();
+  if (!st.count) {
+    sum.appendChild(el("p", "no-reviews", "まだレビューがありません。最初のレビューを書いてみましょう。"));
+  } else {
+    const avg = el("div", "avg");
+    avg.append(el("div", "num", st.avg.toFixed(1)), makeStars(st.avg), el("div", "n", st.count + "件のレビュー"));
+    const dist = el("div", "dist");
+    for (let s = 5; s >= 1; s--) {
+      const row = el("div", "dist-row");
+      const bar = el("div", "bar");
+      const fill = el("span");
+      fill.style.width = (st.count ? st.dist[s] / st.count * 100 : 0) + "%";
+      bar.appendChild(fill);
+      row.append(el("span", "lab", "★" + s), bar, el("span", "", String(st.dist[s])));
+      dist.appendChild(row);
+    }
+    sum.append(avg, dist);
+  }
+
+  const ul = $("reviews");
+  ul.replaceChildren();
+  const list = st.list.slice();
+  if (state.rsort === "new") list.sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  if (state.rsort === "high") list.sort((a, b) => b.stars - a.stars);
+  if (state.rsort === "low") list.sort((a, b) => a.stars - b.stars);
+  if (!list.length) { ul.appendChild(el("li", "no-reviews", "表示できるレビューはまだありません。")); return; }
+  list.forEach((r) => {
+    const li = el("li", "review");
+    const top = el("div", "review-top");
+    top.append(makeStars(r.stars), el("span", "who", r.name || "匿名"), el("span", "date", r.date || ""));
+    li.appendChild(top);
+    if (r.text) li.appendChild(el("p", "", r.text));
+    ul.appendChild(li);
+  });
+}
+
+// ---------- 投稿フォーム ----------
+let formStars = 0;
+const starBtns = Array.from(document.querySelectorAll("#star-input button"));
+function paintStars(n) {
+  starBtns.forEach((b, i) => {
+    b.classList.toggle("on", i < n);
+    b.setAttribute("aria-checked", String(i + 1 === formStars));
+  });
+  $("star-label").textContent = n ? n + "つ星（" + STAR_WORDS[n] + "）" : "星を選んでください";
+}
+starBtns.forEach((b, i) => {
+  b.addEventListener("click", () => { formStars = i + 1; paintStars(formStars); });
+  b.addEventListener("mouseenter", () => paintStars(i + 1));
+});
+$("star-input").addEventListener("mouseleave", () => paintStars(formStars));
+
+function setStatus(msg, kind) { const s = $("f-status"); s.textContent = msg; s.className = "status" + (kind ? " " + kind : ""); }
+function resetForm() {
+  formStars = 0; paintStars(0);
+  $("f-text").value = ""; $("f-count").textContent = "0 / 500"; $("f-hp").value = "";
+  setStatus("");
+}
+$("f-text").addEventListener("input", (e) => { $("f-count").textContent = e.target.value.length + " / 500"; });
+
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+function readDemo() { try { return JSON.parse(localStorage.getItem(DEMO_STORE) || "[]"); } catch { return []; } }
+function saveDemo(r) { try { const l = readDemo(); l.push(r); localStorage.setItem(DEMO_STORE, JSON.stringify(l)); } catch { /* 保存できなくても続行 */ } }
+
+async function sendReview(app, r) {
+  if (!CONFIG.reviewApiUrl) { saveDemo(r); return; }
+  const res = await fetch(CONFIG.reviewApiUrl, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ appKey: app.url, appName: app.name, name: r.name, stars: r.stars, text: r.text, website: $("f-hp").value })
+  });
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  let j = null;
+  try { j = await res.json(); } catch { /* 応答が読めなくても投稿自体は成功していることが多い */ }
+  if (j && j.ok === false) throw new Error(j.error || "error");
+}
+
+$("form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const app = state.current;
+  if (!formStars) { setStatus("星を1つ以上選んでください。", "ng"); return; }
+  const lastKey = "appstore_last_post";
+  try {
+    if (Date.now() - Number(localStorage.getItem(lastKey) || 0) < 30000) { setStatus("連続での投稿はできません。少し待ってからもう一度お試しください。", "ng"); return; }
+  } catch { /* 無視 */ }
+
+  const r = {
+    key: app.url,
+    name: $("f-name").value.trim().slice(0, 20) || "匿名",
+    stars: formStars,
+    text: $("f-text").value.trim().slice(0, 500),
+    date: todayStr()
+  };
+  const btn = $("f-submit");
+  btn.disabled = true; setStatus("送信しています…");
+  try {
+    await sendReview(app, r);
+    state.reviews.push(r);
+    try { localStorage.setItem(lastKey, String(Date.now())); } catch { /* 無視 */ }
+    resetForm();
+    setStatus("レビューを投稿しました。ありがとうございます！", "ok");
+    renderReviewPanel(); renderGrid();
+  } catch {
+    setStatus("投稿できませんでした。通信状況を確認して、もう一度お試しください。", "ng");
+  } finally { btn.disabled = false; }
+});
+
+// ---------- ダイアログの開閉 ----------
+$("dlg-close").addEventListener("click", () => $("dlg").close());
+$("dlg").addEventListener("click", (e) => { if (e.target === $("dlg")) $("dlg").close(); });
+$("r-sort").addEventListener("change", (e) => { state.rsort = e.target.value; renderReviewPanel(); });
+
+// ---------- 起動 ----------
+function addNotice(text, isError) {
+  const p = el("p", "notice" + (isError ? " error" : ""), text);
+  $("notice-area").appendChild(p);
+}
+async function loadApps() {
+  if (!CONFIG.sheetCsvUrl) {
+    state.rows = DEMO_ROWS;
+    addNotice("いまはサンプルのアプリを表示しています。CONFIG.sheetCsvUrl にスプレッドシートのCSV URLを設定すると、自作アプリの一覧に切り替わります。");
+    return;
+  }
+  try {
+    const res = await fetch(CONFIG.sheetCsvUrl, { cache: "no-store" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    state.rows = toApps(parseCSV(await res.text()));
+  } catch {
+    state.rows = [];
+    addNotice("アプリ一覧を読み込めませんでした。通信状況を確認するか、スプレッドシートが「ウェブに公開」されているか確かめてください。", true);
+  }
+}
+async function loadReviews() {
+  if (!CONFIG.reviewApiUrl) {
+    state.reviews = DEMO_REVIEWS.concat(readDemo());
+    addNotice("レビューは「お試しモード」です。投稿はこの端末の中だけに保存され、ほかの人には見えません。CONFIG.reviewApiUrl を設定すると、みんなで共有できます。");
+    return;
+  }
+  try {
+    const res = await fetch(CONFIG.reviewApiUrl, { cache: "no-store" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const j = await res.json();
+    state.reviews = (j.reviews || []).filter((r) => r && r.key && r.stars >= 1 && r.stars <= 5)
+      .map((r) => ({ key: String(r.key), name: String(r.name || ""), stars: Math.round(Number(r.stars)), text: String(r.text || ""), date: String(r.date || "") }));
+  } catch {
+    state.reviews = [];
+    addNotice("レビューを読み込めませんでした。アプリの一覧は使えますが、レビューは表示されません。", true);
+  }
+}
+async function init() {
+  $("title").textContent = CONFIG.title;
+  $("subtitle").textContent = CONFIG.subtitle;
+  document.title = CONFIG.title;
+  $("search").addEventListener("input", (e) => { state.query = e.target.value.trim(); renderGrid(); });
+  $("sort").addEventListener("change", (e) => { state.sort = e.target.value; renderGrid(); });
+  await Promise.all([loadApps(), loadReviews()]);
+  renderChips();
+  renderGrid();
+}
+init();
+</script>
+</body>
+</html>
