@@ -6,7 +6,10 @@
 <title>OtemaeTK App Store</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://docs.google.com">
+<link rel="preconnect" href="https://script.google.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;700&display=swap" rel="stylesheet"></noscript>
 <style>
   :root {
     --bg: #f4f6f8;
@@ -259,7 +262,7 @@
 // ========== 設定（ここだけ書き換えればOK） ==========
 const CONFIG = {
   title: "OtemaeTK App Store",
-  subtitle: "このアプリはiコース0期生の生徒が作成したものです。アプリをご使用いただき，レビューをお願いします！なお，アイコンの画像は，アプリの内容と関係なく設定されているものがあります。",
+  subtitle: "このアプリはiコース0期生の生徒が作成したものです。アプリをご使用いただき，レビューをお願いします！なお，アイコンの画像は，アプリの内容と関係なく設定されているものがあります。。",
   // アプリ一覧：スプレッドシートを「ウェブに公開」→ CSV のURL
   sheetCsvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtK93LGTHX-yyTaf5hGzOHQEfWI2gWBKhJAOM6mb9RjuwavI59PQ38oymKDrayqzX-xacJ2D5ETZTn/pub?output=csv",
   // レビュー：Google Apps Script をウェブアプリとして公開したURL（…/exec）
@@ -357,15 +360,35 @@ function tintFor(name) {
   for (const ch of name) h = (h * 31 + ch.codePointAt(0)) >>> 0;
   return TINTS[h % TINTS.length];
 }
+// ドライブの共有リンクや画像URLから、ファイルの番号（ID）を取り出す
+function driveId(u) {
+  const m = u.match(/drive\.google\.com\/file\/d\/([\w-]+)/)
+    || u.match(/drive\.google\.com\/(?:open|uc|thumbnail)\?[^#]*\bid=([\w-]+)/)
+    || u.match(/lh3\.googleusercontent\.com\/d\/([\w-]+)/);
+  return m ? m[1] : null;
+}
+// 小さいサイズの画像から順に試す（だめなら次の候補、最後は頭文字）
+function iconSources(src) {
+  const id = driveId(src);
+  if (!id) return [src];
+  return ["https://drive.google.com/thumbnail?id=" + id + "&sz=w200", "https://lh3.googleusercontent.com/d/" + id];
+}
 function makeIcon(app) {
   const box = document.createElement("div");
   box.className = "icon";
   box.style.background = tintFor(app.name);
   const fallback = () => { box.textContent = Array.from(app.name)[0]; };
   if (/^https?:\/\//i.test(app.icon)) {
+    const sources = iconSources(app.icon);
+    let i = 0;
     const img = document.createElement("img");
-    img.alt = ""; img.loading = "lazy"; img.src = app.icon;
-    img.addEventListener("error", () => { img.remove(); fallback(); });
+    img.alt = ""; img.loading = "lazy"; img.decoding = "async"; img.width = 76; img.height = 76;
+    img.addEventListener("error", () => {
+      i++;
+      if (i < sources.length) img.src = sources[i];
+      else { img.remove(); fallback(); }
+    });
+    img.src = sources[0];
     box.appendChild(img);
   } else if (app.icon) box.textContent = app.icon;
   else fallback();
@@ -688,6 +711,11 @@ function addNotice(text, isError) {
   const p = el("p", "notice" + (isError ? " error" : ""), text);
   $("notice-area").appendChild(p);
 }
+const CACHE_APPS = "appstore_cache_apps_v1";
+const CACHE_REVIEWS = "appstore_cache_reviews_v1";
+function readCache(k) { try { const v = JSON.parse(localStorage.getItem(k) || "null"); return Array.isArray(v) ? v : null; } catch { return null; } }
+function writeCache(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* 保存できなくても続行 */ } }
+
 async function loadApps() {
   if (!CONFIG.sheetCsvUrl) {
     state.rows = DEMO_ROWS;
@@ -698,9 +726,10 @@ async function loadApps() {
     const res = await fetch(CONFIG.sheetCsvUrl, { cache: "no-store" });
     if (!res.ok) throw new Error("HTTP " + res.status);
     state.rows = toApps(parseCSV(await res.text()));
+    writeCache(CACHE_APPS, state.rows);
   } catch {
-    state.rows = [];
-    addNotice("アプリ一覧を読み込めませんでした。通信状況を確認するか、スプレッドシートが「ウェブに公開」されているか確かめてください。", true);
+    // 前回のデータを表示できているときは、そのまま使い続ける
+    if (!state.rows.length) addNotice("アプリ一覧を読み込めませんでした。通信状況を確認するか、スプレッドシートが「ウェブに公開」されているか確かめてください。", true);
   }
 }
 async function loadReviews() {
@@ -715,9 +744,9 @@ async function loadReviews() {
     const j = await res.json();
     state.reviews = (j.reviews || []).filter((r) => r && r.key && r.stars >= 1 && r.stars <= 5)
       .map((r) => ({ key: String(r.key), name: String(r.name || ""), stars: Math.round(Number(r.stars)), text: String(r.text || ""), date: String(r.date || "") }));
+    writeCache(CACHE_REVIEWS, state.reviews);
   } catch {
-    state.reviews = [];
-    addNotice("レビューを読み込めませんでした。アプリの一覧は使えますが、レビューは表示されません。", true);
+    if (!state.reviews.length) addNotice("レビューを読み込めませんでした。アプリの一覧は使えますが、レビューは表示されません。", true);
   }
 }
 async function init() {
@@ -726,9 +755,27 @@ async function init() {
   document.title = CONFIG.title;
   $("search").addEventListener("input", (e) => { state.query = e.target.value.trim(); renderGrid(); });
   $("sort").addEventListener("change", (e) => { state.sort = e.target.value; renderGrid(); });
-  await Promise.all([loadApps(), loadReviews()]);
-  renderChips();
-  renderGrid();
+
+  // 前回のデータが残っていれば、通信を待たずに先に表示する
+  const cachedApps = CONFIG.sheetCsvUrl ? readCache(CACHE_APPS) : null;
+  const cachedReviews = CONFIG.reviewApiUrl ? readCache(CACHE_REVIEWS) : null;
+  if (cachedReviews) state.reviews = cachedReviews;
+  let appsReady = false;
+  if (cachedApps) {
+    state.rows = cachedApps;
+    appsReady = true;
+    renderChips(); renderGrid();
+  } else {
+    $("grid").appendChild(el("p", "empty", "アプリ一覧を読み込んでいます…"));
+  }
+
+  // 一覧はレビューを待たずに表示し、レビューは届いた順に反映する
+  const appsDone = loadApps().then(() => { appsReady = true; renderChips(); renderGrid(); });
+  const reviewsDone = loadReviews().then(() => {
+    if (appsReady) renderGrid();
+    if ($("dlg").open && state.current) renderReviewPanel();
+  });
+  await Promise.all([appsDone, reviewsDone]);
 }
 init();
 </script>
