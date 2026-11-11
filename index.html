@@ -150,6 +150,8 @@
   .review p { margin: 6px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
   .no-reviews { padding: 20px 0; color: var(--muted); }
 
+  .foot-note { margin: 32px 0 0; font-size: .8rem; color: var(--muted); }
+
   @media (prefers-reduced-motion: reduce) { .card { transition: none; } }
 </style>
 </head>
@@ -174,6 +176,7 @@
   <p class="count" id="count" aria-live="polite"></p>
 
   <main id="grid" class="grid"></main>
+  <p class="foot-note">このサイトでは、アプリがどれくらい使われているかを、個人が特定されない形で記録しています。</p>
 </div>
 
 <dialog id="dlg" aria-labelledby="dlg-name">
@@ -255,7 +258,7 @@
 <script>
 // ========== 設定（ここだけ書き換えればOK） ==========
 const CONFIG = {
-  title: "OtemaeTK App Store2026",
+  title: "OtemaeTK App Store",
   subtitle: "ここから好きなアプリを選んで、すぐに使えます。",
   // アプリ一覧：スプレッドシートを「ウェブに公開」→ CSV のURL
   sheetCsvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtK93LGTHX-yyTaf5hGzOHQEfWI2gWBKhJAOM6mb9RjuwavI59PQ38oymKDrayqzX-xacJ2D5ETZTn/pub?output=csv",
@@ -380,6 +383,18 @@ function openLink(app, cls) {
   return a;
 }
 
+// ---------- 利用状況の記録（個人は特定されません。集計は管理者だけがスプレッドシートで見られます） ----------
+function track(event, app) {
+  if (!CONFIG.reviewApiUrl || !app) return;
+  try {
+    fetch(CONFIG.reviewApiUrl, {
+      method: "POST", mode: "no-cors", keepalive: true,
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ event: event, appKey: app.url, appName: app.name, device: detectDevice() })
+    }).catch(() => {});
+  } catch { /* 記録できなくても、サイトの使い方には影響しません */ }
+}
+
 // ---------- 一覧 ----------
 function makeCard(app) {
   const st = statsFor(app.url);
@@ -447,6 +462,7 @@ function renderGrid() {
 // ---------- 詳細ダイアログ ----------
 function openDetail(app) {
   state.current = app;
+  track("詳細を見た", app);
   $("dlg-icon").replaceChildren(makeIcon(app));
   $("dlg-name").textContent = app.name;
   $("dlg-tag").textContent = app.category;
@@ -643,6 +659,7 @@ function setGuideStatus(msg) { $("a2hs-status").textContent = msg; }
 $("dlg-a2hs").addEventListener("click", () => {
   const app = state.current;
   const g = GUIDES[detectDevice()];
+  track("ホーム画面の案内を見た", app);
   $("a2hs-app").textContent = app.name;
   $("a2hs-lead").textContent = g.lead;
   fillSteps($("a2hs-steps"), g.steps);
@@ -652,9 +669,12 @@ $("dlg-a2hs").addEventListener("click", () => {
   $("a2hs").showModal();
   $("a2hs").querySelector(".dlg-scroll").scrollTop = 0;
 });
+$("dlg-open").addEventListener("click", () => track("アプリを開く", state.current));
+$("a2hs-open").addEventListener("click", () => track("アプリを開く", state.current));
 $("a2hs-close").addEventListener("click", () => $("a2hs").close());
 $("a2hs").addEventListener("click", (e) => { if (e.target === $("a2hs")) $("a2hs").close(); });
 $("a2hs-copy").addEventListener("click", async () => {
+  track("URLコピー", state.current);
   try {
     await navigator.clipboard.writeText(state.current.url);
     setGuideStatus("URLをコピーしました。");
