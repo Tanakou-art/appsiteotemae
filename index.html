@@ -98,7 +98,17 @@
   .dlg-head h2 { margin: 0; font-size: 1.5rem; line-height: 1.35; }
   .dlg-head .tag { display: block; margin-top: 2px; }
   .dlg-desc { margin: 14px 0 16px; color: var(--muted); white-space: pre-wrap; }
-  .open.big { padding: 10px 28px; font-size: 1.05rem; }
+  .open.big { padding: 10px 28px; font-size: 1.05rem; border: 2px solid var(--accent); font-family: inherit; line-height: 1.5; cursor: pointer; }
+  .open.sub { background: var(--surface); color: var(--accent); }
+  .dlg-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+  #a2hs { width: min(520px, 94vw); }
+  .guide-lead { margin: 14px 0 0; font-weight: 700; }
+  .steps { list-style: none; margin: 14px 0 0; padding: 0; counter-reset: step; display: grid; gap: 14px; }
+  .steps li { position: relative; padding-left: 44px; counter-increment: step; min-height: 32px; }
+  .steps li::before { content: counter(step); position: absolute; left: 0; top: 0; width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 700; display: grid; place-items: center; }
+  .share-ico { display: inline-block; vertical-align: -4px; margin: 0 2px; color: var(--accent); }
+  .guide-note { margin: 18px 0 0; padding: 12px 14px; background: var(--bg); border-radius: 12px; font-size: .86rem; color: var(--muted); }
+  .guide-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
 
   h3 { margin: 32px 0 12px; font-size: 1.1rem; }
   .summary { display: flex; flex-wrap: wrap; gap: 20px 32px; align-items: center; padding: 18px 20px; background: var(--bg); border-radius: 16px; }
@@ -146,7 +156,7 @@
 <body>
 <div class="wrap">
   <header>
-    <h1 id="title">マイアプリストア</h1>
+    <h1 id="title">OtemaeTK App Store</h1>
     <p class="sub" id="subtitle"></p>
   </header>
 
@@ -177,7 +187,10 @@
       </div>
     </div>
     <p class="dlg-desc" id="dlg-desc"></p>
-    <a class="open big" id="dlg-open" target="_blank" rel="noopener noreferrer">アプリを開く</a>
+    <div class="dlg-actions">
+      <a class="open big" id="dlg-open" target="_blank" rel="noopener noreferrer">アプリを開く</a>
+      <button type="button" class="open big sub" id="dlg-a2hs">ホーム画面に追加</button>
+    </div>
 
     <h3>みんなの評価</h3>
     <div class="summary" id="summary"></div>
@@ -222,11 +235,28 @@
   </div>
 </dialog>
 
+<dialog id="a2hs" aria-labelledby="a2hs-title">
+  <div class="dlg-top"><button type="button" class="close" id="a2hs-close" aria-label="閉じる">×</button></div>
+  <div class="dlg-scroll">
+    <h2 id="a2hs-title" style="margin:0 0 4px;font-size:1.3rem;line-height:1.4">ホーム画面に追加する</h2>
+    <p class="tag" id="a2hs-app" style="margin:0"></p>
+    <p class="guide-lead" id="a2hs-lead"></p>
+    <ol class="steps" id="a2hs-steps"></ol>
+    <p class="guide-note">追加されるアイコンの名前や絵は、アプリ側の設定で決まります。ホーム画面への追加は、アプリを開いた状態で端末のメニューから行う決まりのため、このページからワンタップで追加することはできません。</p>
+    <div class="guide-actions">
+      <a class="open big" id="a2hs-open" target="_blank" rel="noopener noreferrer">アプリを開く</a>
+      <button type="button" class="open big sub" id="a2hs-copy">URLをコピー</button>
+    </div>
+    <p class="hint" id="a2hs-url" style="margin-top:12px;word-break:break-all"></p>
+    <p class="status" id="a2hs-status" role="status"></p>
+  </div>
+</dialog>
+
 <script>
 // ========== 設定（ここだけ書き換えればOK） ==========
 const CONFIG = {
   title: "OtemaeTK App Store",
-  subtitle: "iコース0期生の生徒が，プロンプトエンジニアリングの授業で作成したアプリです。ぜひご使用いただき，レビューをお願いします！",
+  subtitle: "ここから好きなアプリを選んで、すぐに使えます。",
   // アプリ一覧：スプレッドシートを「ウェブに公開」→ CSV のURL
   sheetCsvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vTtK93LGTHX-yyTaf5hGzOHQEfWI2gWBKhJAOM6mb9RjuwavI59PQ38oymKDrayqzX-xacJ2D5ETZTn/pub?output=csv",
   // レビュー：Google Apps Script をウェブアプリとして公開したURL（…/exec）
@@ -366,7 +396,7 @@ function makeCard(app) {
     rating.append(el("b", "", st.avg.toFixed(1)), makeStars(st.avg), el("span", "", "(" + st.count + "件)"));
   } else rating.appendChild(el("span", "", "まだレビューがありません"));
   body.appendChild(rating);
-    if (app.category) {
+  if (app.category) {
     const tag = el("span", "tag", app.category);
     tag.style.display = "block";
     tag.style.marginTop = "6px";
@@ -546,6 +576,92 @@ $("form").addEventListener("submit", async (e) => {
 $("dlg-close").addEventListener("click", () => $("dlg").close());
 $("dlg").addEventListener("click", (e) => { if (e.target === $("dlg")) $("dlg").close(); });
 $("r-sort").addEventListener("change", (e) => { state.rsort = e.target.value; renderReviewPanel(); });
+
+// ---------- ホーム画面に追加の案内 ----------
+function detectDevice() {
+  const ua = navigator.userAgent;
+  const iosLike = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  if (iosLike) return /iPhone|iPod/.test(ua) ? "iphone" : "ipad";
+  if (/Android/.test(ua)) return "android";
+  return "pc";
+}
+const SHARE_SVG = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 3v12M8 7l4-4 4 4M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const GUIDES = {
+  ipad: {
+    lead: "iPad（Safari）での追加方法",
+    steps: [
+      "この画面の「アプリを開く」を押して、Safariでアプリを開きます。",
+      "アプリが開いたら、Safariの共有ボタン {share}（四角から上向きの矢印が出たマーク）をタップします。",
+      "メニューから「ホーム画面に追加」を選びます。見つからないときは、メニューを下にスクロールしてください。",
+      "名前を確認して「追加」をタップします。ホーム画面にアイコンができます。"
+    ]
+  },
+  iphone: {
+    lead: "iPhone（Safari）での追加方法",
+    steps: [
+      "この画面の「アプリを開く」を押して、Safariでアプリを開きます。",
+      "アプリが開いたら、画面下の共有ボタン {share}（四角から上向きの矢印が出たマーク）をタップします。",
+      "メニューから「ホーム画面に追加」を選びます。見つからないときは、メニューを下にスクロールしてください。",
+      "名前を確認して「追加」をタップします。ホーム画面にアイコンができます。"
+    ]
+  },
+  android: {
+    lead: "Android（Chrome）での追加方法",
+    steps: [
+      "この画面の「アプリを開く」を押して、Chromeでアプリを開きます。",
+      "Chromeの右上にあるメニュー（︙）をタップします。",
+      "「ホーム画面に追加」（または「アプリをインストール」）を選びます。",
+      "「追加」をタップします。ホーム画面にアイコンができます。"
+    ]
+  },
+  pc: {
+    lead: "パソコンでは、ホーム画面への追加はできません。",
+    steps: [
+      "iPadやスマートフォンで、このサイトを開きます。",
+      "使いたいアプリを選んで、「ホーム画面に追加」を押します。",
+      "表示された手順に沿って操作します。"
+    ]
+  }
+};
+function fillSteps(list, items) {
+  list.replaceChildren();
+  items.forEach((t) => {
+    const li = document.createElement("li");
+    const parts = t.split("{share}");
+    parts.forEach((part, i) => {
+      li.appendChild(document.createTextNode(part));
+      if (i < parts.length - 1) {
+        const ico = el("span", "share-ico");
+        ico.innerHTML = SHARE_SVG; // 固定のアイコン（外部の文字は入れない）
+        li.appendChild(ico);
+      }
+    });
+    list.appendChild(li);
+  });
+}
+function setGuideStatus(msg) { $("a2hs-status").textContent = msg; }
+$("dlg-a2hs").addEventListener("click", () => {
+  const app = state.current;
+  const g = GUIDES[detectDevice()];
+  $("a2hs-app").textContent = app.name;
+  $("a2hs-lead").textContent = g.lead;
+  fillSteps($("a2hs-steps"), g.steps);
+  $("a2hs-open").href = app.url;
+  $("a2hs-url").textContent = app.url;
+  setGuideStatus("");
+  $("a2hs").showModal();
+  $("a2hs").querySelector(".dlg-scroll").scrollTop = 0;
+});
+$("a2hs-close").addEventListener("click", () => $("a2hs").close());
+$("a2hs").addEventListener("click", (e) => { if (e.target === $("a2hs")) $("a2hs").close(); });
+$("a2hs-copy").addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(state.current.url);
+    setGuideStatus("URLをコピーしました。");
+  } catch {
+    setGuideStatus("コピーできませんでした。上のURLを長押しして、コピーしてください。");
+  }
+});
 
 // ---------- 起動 ----------
 function addNotice(text, isError) {
