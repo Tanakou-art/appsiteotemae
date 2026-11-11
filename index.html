@@ -366,12 +366,16 @@ function makeCard(app) {
     rating.append(el("b", "", st.avg.toFixed(1)), makeStars(st.avg), el("span", "", "(" + st.count + "件)"));
   } else rating.appendChild(el("span", "", "まだレビューがありません"));
   body.appendChild(rating);
+    if (app.category) {
+    const tag = el("span", "tag", app.category);
+    tag.style.display = "block";
+    tag.style.marginTop = "6px";
+    body.appendChild(tag);
+  }
+  main.style.paddingBottom = "18px";
   main.append(makeIcon(app), body);
   main.addEventListener("click", () => openDetail(app));
-
-  const foot = el("div", "card-foot");
-  foot.append(el("span", "tag", app.category), openLink(app, "open"));
-  card.append(main, foot);
+  card.append(main);
   return card;
 }
 function renderChips() {
